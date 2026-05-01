@@ -1,0 +1,258 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Scheduler - Schedule Data{% endblock %}
+
+{% block body %}
+<style>
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0;
+        padding: 20px;
+    }
+
+    .container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        padding: 40px;
+        max-width: 600px;
+        width: 100%;
+    }
+
+    .header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .header h1 {
+        margin: 0;
+        color: #333;
+        font-size: 28px;
+        font-weight: 700;
+    }
+
+    .header .subtitle {
+        color: #999;
+        font-size: 14px;
+        margin-top: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+    }
+
+    .refresh-indicator {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        background: #4CAF50;
+        border-radius: 50%;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+
+    .data-card {
+        background: #f8f9fa;
+        border-left: 4px solid #667eea;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+
+    .data-card-title {
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        color: #999;
+        margin: 0 0 8px 0;
+        letter-spacing: 0.5px;
+    }
+
+    .data-card-value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #333;
+        margin: 0;
+        word-break: break-all;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        margin-top: 8px;
+    }
+
+    .status-badge.success {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .status-badge.error {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .status-badge.pending {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .footer {
+        text-align: center;
+        margin-top: 30px;
+        padding-top: 20px;
+        border-top: 1px solid #eee;
+        font-size: 13px;
+        color: #999;
+    }
+
+    .last-updated {
+        display: block;
+        margin-top: 10px;
+        font-weight: 600;
+        color: #667eea;
+    }
+
+    .loading {
+        text-align: center;
+        padding: 40px 20px;
+        color: #999;
+    }
+
+    .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #667eea;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+
+    .error-message {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        border-left: 4px solid #f5c6cb;
+    }
+</style>
+
+<div class="container">
+    <div class="header">
+        <h1>📊 Scheduler Dashboard</h1>
+        <div class="subtitle">
+            <span class="refresh-indicator"></span>
+            Mise à jour automatique toutes les minutes
+        </div>
+    </div>
+
+    <div id="schedule-content" data-controller="schedule-loader">
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Chargement des données...</p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <span>Mise à jour automatique en cours</span>
+        <span class="last-updated">Dernière mise à jour: <span id="last-update-time">--:--:--</span></span>
+    </div>
+</div>
+
+<script>
+    const REFRESH_INTERVAL = 60000; // 60 secondes
+
+    async function loadScheduleData() {
+        try {
+            const response = await fetch('/schedule_data.json');
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            renderScheduleData(data);
+            updateLastRefreshTime();
+        } catch (error) {
+            console.error('Erreur lors du chargement:', error);
+            renderError(error.message);
+        }
+    }
+
+    function renderScheduleData(data) {
+        const content = document.getElementById('schedule-content');
+
+        let statusClass = 'pending';
+        if (data.status === 'success') {
+            statusClass = 'success';
+        } else if (data.status === 'error') {
+            statusClass = 'error';
+        }
+
+        content.innerHTML = `
+            <div class="data-card">
+                <p class="data-card-title">État</p>
+                <div class="status-badge ${statusClass}">${data.status}</div>
+            </div>
+
+            <div class="data-card">
+                <p class="data-card-title">Dernier Exécution</p>
+                <p class="data-card-value">${data.last_execution || 'N/A'}</p>
+            </div>
+
+            <div class="data-card">
+                <p class="data-card-title">Nombre d'Exécutions</p>
+                <p class="data-card-value">${data.execution_count || 0}</p>
+            </div>
+
+            <div class="data-card">
+                <p class="data-card-title">Message</p>
+                <p class="data-card-value" style="font-size: 16px; color: #666;">${data.message || 'Aucun message'}</p>
+            </div>
+        `;
+    }
+
+    function renderError(message) {
+        const content = document.getElementById('schedule-content');
+        content.innerHTML = `
+            <div class="error-message">
+                <strong>Erreur:</strong> ${message}
+            </div>
+        `;
+    }
+
+    function updateLastRefreshTime() {
+        const now = new Date();
+        const time = now.toLocaleTimeString('fr-FR');
+        document.getElementById('last-update-time').textContent = time;
+    }
+
+    // Charger les données au chargement de la page
+    document.addEventListener('DOMContentLoaded', () => {
+        loadScheduleData();
+
+        // Actualiser toutes les minutes
+        setInterval(loadScheduleData, REFRESH_INTERVAL);
+    });
+</script>
+{% endblock %}
