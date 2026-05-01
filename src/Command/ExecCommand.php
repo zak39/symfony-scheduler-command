@@ -9,11 +9,13 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Scheduler\Attribute\AsCronTask;
 
 #[AsCommand(
     name: 'app:exec',
     description: 'Add a short description for your command',
 )]
+#[AsCronTask('* * * * *')]
 class ExecCommand extends Command
 {
     public function __construct()
@@ -32,6 +34,8 @@ class ExecCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
+
+        dump('Scheduler exécuté avec succès à ' . (new \DateTime())->format('Y-m-d H:i:s'));
 
         $dataFilename = 'public/schedule_data.json';
         $schedulerData = [
